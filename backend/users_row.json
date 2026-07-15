@@ -1,0 +1,20 @@
+{
+  "rows": [
+    {
+      "id": 3,
+      "username": "prince@himalayanerp.in",
+      "password_hash": "$2a$10$et.lWimivZUmAIzhr.kLYe5vfnmWVPSCa/s0gl9.INwpFqvSpW9Ay",
+      "role": "SUPERADMIN",
+      "created_at": "2026-02-27T07:37:41.000Z",
+      "business_id": 1
+    },
+    {
+      "id": 4,
+      "username": "jhaberam@himalayanerp.in",
+      "password_hash": "$2a$10$Nzl6wMffxBHUE6S6q5JcWe6hlEbysZ/vbA9ImQvUfh7FwR/KOUoMi",
+      "role": "admin",
+      "created_at": "2026-02-27T07:46:38.000Z",
+      "business_id": 2
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "username": "Jhabe Ram",
+    "role": "admin",
+    "business_id": 1
+  },
+  {
+    "username": "prince@himalayanerp.in",
+    "role": "SUPERADMIN",
+    "business_id": 1
+  }
+]

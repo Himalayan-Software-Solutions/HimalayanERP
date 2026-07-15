@@ -1,0 +1,21 @@
+[
+  "id",
+  "invoice_number",
+  "invoice_date",
+  "customer_id",
+  "customer_name",
+  "customer_phone",
+  "customer_address",
+  "gstin",
+  "eway_bill_no",
+  "payment_mode",
+  "gross_amount",
+  "total_discount",
+  "taxable_amount",
+  "freight_charges",
+  "labour_charges",
+  "total_sgst",
+  "total_cgst",
+  "final_amount",
+  "created_at"
+]

@@ -1,0 +1,5 @@
+Connected to DB
+Fixed 0 legacy invoices to business 1
+Fixed 0 legacy ledgers to business 1
+Dropped unique global index on invoice_number
+Created composite unique index biz_invoice

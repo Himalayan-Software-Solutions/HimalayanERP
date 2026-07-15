@@ -1,0 +1,11 @@
+Error: Table 'railway.due_customers' doesn't exist
+    at PromisePool.query (D:\NoVA\Himalayan ERP\Jhabe Ram & Sons\Code\backend\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at DuePayment.addDueCustomer (D:\NoVA\Himalayan ERP\Jhabe Ram & Sons\Code\backend\src\models\duePaymentModel.js:18:35)
+    at exports.addDueCustomer (D:\NoVA\Himalayan ERP\Jhabe Ram & Sons\Code\backend\src\controllers\duePaymentController.js:18:40)
+    at Layer.handle [as handle_request] (D:\NoVA\Himalayan ERP\Jhabe Ram & Sons\Code\backend\node_modules\express\lib\router\layer.js:95:5)
+    at next (D:\NoVA\Himalayan ERP\Jhabe Ram & Sons\Code\backend\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (D:\NoVA\Himalayan ERP\Jhabe Ram & Sons\Code\backend\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (D:\NoVA\Himalayan ERP\Jhabe Ram & Sons\Code\backend\node_modules\express\lib\router\layer.js:95:5)
+    at D:\NoVA\Himalayan ERP\Jhabe Ram & Sons\Code\backend\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (D:\NoVA\Himalayan ERP\Jhabe Ram & Sons\Code\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (D:\NoVA\Himalayan ERP\Jhabe Ram & Sons\Code\backend\node_modules\express\lib\router\index.js:280:10)
