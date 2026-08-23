@@ -88,7 +88,7 @@ const Ledger = () => {
         try {
             // Check if stored PDF exists
             if (entry.pdf_path) {
-                window.open(`http://localhost:5000${entry.pdf_path}`, '_blank');
+                window.open(`${import.meta.env.VITE_API_URL_NO_API || 'http://localhost:5000'}${entry.pdf_path}`, '_blank');
             } else {
                 // Fallback to generating on the fly
                 const res = await api.get(`/invoices/${entry.invoice_id}`);

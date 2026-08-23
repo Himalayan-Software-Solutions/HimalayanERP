@@ -259,7 +259,7 @@ const Settings = () => {
                         {settings.signature_path ? (
                             <div className="relative inline-block border rounded-lg p-1">
                                 <img
-                                    src={`http://localhost:5000${settings.signature_path}`}
+                                    src={`${import.meta.env.VITE_API_URL_NO_API || 'http://localhost:5000'}${settings.signature_path}`}
                                     alt="Signature"
                                     className="h-24 w-auto object-contain bg-gray-50 rounded"
                                 />

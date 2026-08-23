@@ -1,3 +1,0 @@
-Starting test...
-Connected to DB
-Business inserted: 4
