@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Package, Printer, FileText, Download, X, Trash2 } from 'lucide-react';
+import { Plus, Search, Package, Printer, FileText, Download, X, Trash2, Eye } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import ItemFormModal from '../components/ItemFormModal';
@@ -21,6 +21,12 @@ const Purchases = () => {
     const [filteredItems, setFilteredItems] = useState([]);
     const [saving, setSaving] = useState(false);
     const [showItemFormModal, setShowItemFormModal] = useState(false);
+
+    // New Data Modals state
+    const [purchaseToView, setPurchaseToView] = useState(null);
+    const [viewData, setViewData] = useState(null);
+    const [loadingView, setLoadingView] = useState(false);
+    const [purchaseToDelete, setPurchaseToDelete] = useState(null);
 
     useEffect(() => {
         fetchPurchases();
@@ -173,6 +179,30 @@ const Purchases = () => {
         }
     };
 
+    const handleViewPurchase = async (purchase) => {
+        setPurchaseToView(purchase);
+        setLoadingView(true);
+        try {
+            const res = await api.get(`/purchases/${purchase.id}`);
+            setViewData(res.data);
+        } catch (error) {
+            toast.error("Failed to load purchase details");
+        } finally {
+            setLoadingView(false);
+        }
+    };
+
+    const handleDeletePurchase = async () => {
+        if (!purchaseToDelete) return;
+        try {
+            await api.delete(`/purchases/${purchaseToDelete.id}`);
+            toast.success("Purchase deleted and stock reverted.");
+            setPurchaseToDelete(null);
+            fetchPurchases();
+        } catch (error) {
+            toast.error(error.response?.data?.error || "Failed to delete purchase");
+        }
+    };
 
     return (
         <div className="space-y-6 animate-in fade-in flex flex-col items-center">
@@ -221,8 +251,8 @@ const Purchases = () => {
                                 <th className="p-4 w-60">Supplier</th>
                                 <th className="p-4 w-32">Phone</th>
                                 <th className="p-4 w-40">GSTIN</th>
-                                <th className="p-4">Items</th>
                                 <th className="p-4 pr-6 text-right w-40">Total Amount</th>
+                                <th className="p-4 pr-6 text-center w-24">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-slate-700">
@@ -246,16 +276,17 @@ const Purchases = () => {
                                         <td className="p-4 font-medium">{purchase.supplier_name.toUpperCase()}</td>
                                         <td className="p-4 text-slate-500">{purchase.supplier_phone || '-'}</td>
                                         <td className="p-4 text-slate-500">{purchase.supplier_gstin || '-'}</td>
-                                        <td className="p-4">
-                                            <div className="text-xs text-slate-500 max-w-sm space-y-0.5">
-                                                {purchase.items_summary && (
-                                                    typeof purchase.items_summary === 'string' ? JSON.parse(purchase.items_summary) : purchase.items_summary
-                                                ).map((it, idx) => (
-                                                    <div key={idx} className="truncate">{it.name} x{it.qty}</div>
-                                                ))}
+                                        <td className="p-4 pr-6 text-right font-bold text-slate-800">₹{parseFloat(purchase.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                        <td className="p-4 pr-6">
+                                            <div className="flex items-center justify-center gap-3">
+                                                <button onClick={() => handleViewPurchase(purchase)} className="text-blue-500 hover:text-blue-700 transition p-1.5 rounded-md hover:bg-blue-50" title="View Details">
+                                                    <Eye className="h-4 w-4" />
+                                                </button>
+                                                <button onClick={() => setPurchaseToDelete(purchase)} className="text-red-400 hover:text-red-600 transition p-1.5 rounded-md hover:bg-red-50" title="Delete">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
                                             </div>
                                         </td>
-                                        <td className="p-4 pr-6 text-right font-bold text-slate-800">₹{parseFloat(purchase.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                     </tr>
                                 ))
                             )}
@@ -422,6 +453,110 @@ const Purchases = () => {
                             <button onClick={() => setShowAddModal(false)} className="px-6 py-2.5 border border-gray-300 rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition text-sm font-medium">Cancel</button>
                             <button onClick={handleSavePurchase} disabled={saving || cart.length === 0} className="px-6 py-2.5 bg-[#1e293b] hover:bg-slate-800 text-white rounded-lg transition disabled:opacity-50 text-sm font-semibold shadow-sm flex items-center gap-2">
                                 {saving ? <span className="animate-spin">↻</span> : null} Save Purchase
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* View Purchase Details Modal */}
+            {purchaseToView && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-5 border-b bg-gray-50/80">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800">Purchase Details</h2>
+                                <p className="text-xs text-slate-500">Ref: {purchaseToView.id} • {new Date(purchaseToView.purchase_date).toLocaleDateString('en-GB')}</p>
+                            </div>
+                            <button onClick={() => { setPurchaseToView(null); setViewData(null); }} className="text-gray-400 hover:text-gray-600 transition p-1 bg-white rounded-full shadow-sm hover:shadow">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100/50 flex flex-wrap gap-x-12 gap-y-4">
+                                <div>
+                                    <p className="text-xs font-semibold text-blue-900/60 uppercase tracking-wider mb-1">Supplier</p>
+                                    <p className="font-bold text-blue-950 text-base">{purchaseToView.supplier_name.toUpperCase()}</p>
+                                </div>
+                                {purchaseToView.supplier_phone && (
+                                    <div>
+                                        <p className="text-xs font-semibold text-blue-900/60 uppercase tracking-wider mb-1">Phone</p>
+                                        <p className="font-medium text-slate-700">{purchaseToView.supplier_phone}</p>
+                                    </div>
+                                )}
+                                {purchaseToView.supplier_gstin && (
+                                    <div>
+                                        <p className="text-xs font-semibold text-blue-900/60 uppercase tracking-wider mb-1">GSTIN</p>
+                                        <p className="font-medium text-slate-700">{purchaseToView.supplier_gstin}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="border border-gray-100 rounded-xl overflow-hidden">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-[#f8fafc] text-gray-500 font-medium">
+                                        <tr>
+                                            <th className="p-3 pl-4">Item Name</th>
+                                            <th className="p-3 w-28">HSN</th>
+                                            <th className="p-3 w-24">Qty</th>
+                                            <th className="p-3 w-32">Rate/MRP (₹)</th>
+                                            <th className="p-3 pr-4 text-right w-36">Amount (₹)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {loadingView ? (
+                                            <tr><td colSpan="5" className="p-8 text-center text-gray-400">Loading item breakdown...</td></tr>
+                                        ) : viewData?.items?.length ? (
+                                            viewData.items.map((it, idx) => (
+                                                <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="p-3 pl-4 font-medium text-slate-800">{it.item_name}</td>
+                                                    <td className="p-3 text-slate-500">{it.hsn_code || '-'}</td>
+                                                    <td className="p-3 font-semibold text-slate-700">{it.quantity}</td>
+                                                    <td className="p-3 text-slate-600">{parseFloat(it.mrp).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="p-3 pr-4 text-right font-bold text-slate-800">{parseFloat(it.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr><td colSpan="5" className="p-6 text-center text-gray-400">No items captured for this purchase.</td></tr>
+                                        )}
+                                    </tbody>
+                                    <tfoot className="bg-gray-50/50">
+                                        <tr>
+                                            <td colSpan="4" className="p-4 text-right font-bold text-slate-600">Total Purchase Value:</td>
+                                            <td className="p-4 pr-4 text-right font-black text-slate-800 text-lg">₹{parseFloat(purchaseToView.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {purchaseToDelete && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
+                        <div className="p-6">
+                            <h2 className="text-xl font-bold text-red-600 mb-3 flex items-center gap-2">
+                                <Trash2 className="h-6 w-6" /> Delete Purchase
+                            </h2>
+                            <p className="text-slate-600 leading-relaxed text-sm">
+                                Are you sure you want to permanently delete the purchase from <strong>{purchaseToDelete.supplier_name.toUpperCase()}</strong> worth <strong>₹{parseFloat(purchaseToDelete.total_amount).toLocaleString('en-IN')}</strong>?
+                            </p>
+                            <div className="mt-3 bg-red-50 text-red-700 text-xs p-3 rounded flex gap-2">
+                                <span className="font-bold">⚠️ Warning:</span> All items from this purchase will be subtracted from the live stock inventory automatically.
+                            </div>
+                        </div>
+                        <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+                            <button onClick={() => setPurchaseToDelete(null)} className="px-5 py-2 border border-gray-300 rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition font-medium text-sm">
+                                Cancel
+                            </button>
+                            <button onClick={handleDeletePurchase} className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition text-sm">
+                                Confirm Delete
                             </button>
                         </div>
                     </div>

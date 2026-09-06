@@ -51,6 +51,23 @@ const purchaseController = {
             console.error('Error recording purchase:', error);
             res.status(500).json({ error: 'Failed to record purchase' });
         }
+    },
+
+    // 4. Delete a purchase
+    deletePurchase: async (req, res) => {
+        try {
+            const businessId = req.user.business_id;
+            const purchaseId = req.params.id;
+            
+            await Purchase.delete(purchaseId, businessId);
+            res.json({ message: 'Purchase deleted successfully and stock reverted.' });
+        } catch (error) {
+            console.error('Error deleting purchase:', error);
+            if (error.message === 'Purchase not found') {
+                return res.status(404).json({ error: 'Purchase not found' });
+            }
+            res.status(500).json({ error: 'Failed to delete purchase' });
+        }
     }
 };
 

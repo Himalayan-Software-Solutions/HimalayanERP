@@ -75,6 +75,48 @@ class Purchase {
             connection.release();
         }
     }
+
+    static async delete(purchaseId, businessId) {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            // 1. Verify purchase belongs to business
+            const [purchases] = await connection.execute('SELECT * FROM purchases WHERE id = ? AND business_id = ?', [purchaseId, businessId]);
+            if (purchases.length === 0) {
+                throw new Error('Purchase not found');
+            }
+
+            // 2. Fetch all items
+            const [items] = await connection.execute('SELECT * FROM purchase_items WHERE purchase_id = ?', [purchaseId]);
+
+            // 3. Decrement stock for each item that exists
+            for (const item of items) {
+                if (item.item_id) {
+                    await connection.execute(
+                        `UPDATE items 
+                         SET current_stock = GREATEST(0, current_stock - ?)
+                         WHERE id = ? AND business_id = ?`,
+                        [item.quantity, item.item_id, businessId]
+                    );
+                }
+            }
+
+            // 4. Delete purchase items
+            await connection.execute('DELETE FROM purchase_items WHERE purchase_id = ?', [purchaseId]);
+
+            // 5. Delete purchase
+            await connection.execute('DELETE FROM purchases WHERE id = ?', [purchaseId]);
+
+            await connection.commit();
+            return true;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
 }
 
 module.exports = Purchase;
