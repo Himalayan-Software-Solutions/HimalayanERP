@@ -50,7 +50,8 @@ const Purchases = () => {
     // --- Supplier Suggestion Logic ---
     // Extract unique suppliers from purchase history
     const uniqueSuppliers = purchases.reduce((acc, current) => {
-        const x = acc.find(item => item.supplier_name.toLowerCase() === current.supplier_name.toLowerCase());
+        if (!current.supplier_name) return acc;
+        const x = acc.find(item => item.name?.toLowerCase() === current.supplier_name?.toLowerCase());
         if (!x) {
             return acc.concat([{
                 name: current.supplier_name,
@@ -60,7 +61,7 @@ const Purchases = () => {
         } else {
             return acc;
         }
-    }, []).filter(s => s.name.toLowerCase().includes(supplierName.toLowerCase()) && supplierName.trim() !== '' && s.name.toLowerCase() !== supplierName.trim().toLowerCase());
+    }, []).filter(s => s.name?.toLowerCase().includes((supplierName || '').toLowerCase()) && (supplierName || '').trim() !== '' && s.name?.toLowerCase() !== (supplierName || '').trim().toLowerCase());
 
     const handleSelectSupplier = (supplier) => {
         setSupplierName(supplier.name);
@@ -71,9 +72,9 @@ const Purchases = () => {
 
     // --- Search Logic ---
     const filteredPurchases = purchases.filter(p =>
-        p.supplier_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.supplier_name && p.supplier_name.toLowerCase().includes((searchQuery || '').toLowerCase())) ||
         (p.supplier_phone && p.supplier_phone.includes(searchQuery)) ||
-        (p.supplier_gstin && p.supplier_gstin.toLowerCase().includes(searchQuery.toLowerCase()))
+        (p.supplier_gstin && p.supplier_gstin.toLowerCase().includes((searchQuery || '').toLowerCase()))
     );
 
     useEffect(() => {
