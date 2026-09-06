@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Package, Printer, FileText, Download, X, Trash2 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import ItemFormModal from '../components/ItemFormModal';
 
 const Purchases = () => {
     const [purchases, setPurchases] = useState([]);
@@ -19,6 +20,7 @@ const Purchases = () => {
     const [inventoryItems, setInventoryItems] = useState([]);
     const [filteredItems, setFilteredItems] = useState([]);
     const [saving, setSaving] = useState(false);
+    const [showItemFormModal, setShowItemFormModal] = useState(false);
 
     useEffect(() => {
         fetchPurchases();
@@ -107,6 +109,12 @@ const Purchases = () => {
         }]);
         setItemSearchQuery('');
         setFilteredItems([]);
+    };
+
+    const handleNewItemAdded = (newItem) => {
+        setInventoryItems(prev => [...prev, newItem]);
+        addItemToCart(newItem);
+        setShowItemFormModal(false);
     };
 
     const updateCartItem = (index, field, value) => {
@@ -333,7 +341,7 @@ const Purchases = () => {
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                                         </div>
                                     </div>
-                                    <button className="bg-[#1e293b] text-white p-2.5 rounded-lg hover:bg-slate-800 transition shadow-sm">
+                                    <button onClick={() => setShowItemFormModal(true)} className="bg-[#1e293b] text-white p-2.5 rounded-lg hover:bg-slate-800 transition shadow-sm">
                                         <Plus className="h-5 w-5" />
                                     </button>
 
@@ -420,6 +428,12 @@ const Purchases = () => {
                 </div>
             )}
 
+            <ItemFormModal
+                isOpen={showItemFormModal}
+                onClose={() => setShowItemFormModal(false)}
+                onSuccess={handleNewItemAdded}
+                initialData={{ name: itemSearchQuery }}
+            />
         </div>
     );
 };
