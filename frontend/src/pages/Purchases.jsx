@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Package, Printer, FileText, Download, X, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Package, Printer, FileText, Download, X, Trash2, Eye, Edit } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import ItemFormModal from '../components/ItemFormModal';
@@ -9,11 +9,13 @@ const Purchases = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
+    const [editingPurchase, setEditingPurchase] = useState(null);
 
     // Form State
     const [supplierName, setSupplierName] = useState('');
     const [supplierPhone, setSupplierPhone] = useState('');
     const [supplierGstin, setSupplierGstin] = useState('');
+    const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
     const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
     const [cart, setCart] = useState([]);
     const [itemSearchQuery, setItemSearchQuery] = useState('');
@@ -105,13 +107,17 @@ const Purchases = () => {
             return;
         }
 
+        const defaultPrice = (item.purchase_price !== undefined && item.purchase_price !== null && item.purchase_price !== '') 
+            ? item.purchase_price 
+            : (item.mrp || 0);
+
         setCart([...cart, {
             item_id: item.id,
             name: item.name,
             hsn_code: item.hsn_code,
             quantity: 1,
-            mrp: item.mrp || 0,
-            amount: item.mrp || 0 // qty * mrp
+            purchase_price: defaultPrice,
+            amount: (parseFloat(defaultPrice) || 0) * 1
         }]);
         setItemSearchQuery('');
         setFilteredItems([]);
@@ -127,10 +133,10 @@ const Purchases = () => {
         const newCart = [...cart];
         newCart[index][field] = value;
         // Recalculate amount
-        if (field === 'quantity' || field === 'mrp') {
+        if (field === 'quantity' || field === 'purchase_price') {
             const qty = parseFloat(newCart[index].quantity) || 0;
-            const mrp = parseFloat(newCart[index].mrp) || 0;
-            newCart[index].amount = qty * mrp;
+            const price = parseFloat(newCart[index].purchase_price) || 0;
+            newCart[index].amount = qty * price;
         }
         setCart(newCart);
     };
@@ -141,14 +147,30 @@ const Purchases = () => {
 
     const totalAmount = cart.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 
-    // --- Submit Logic ---
+    const handleOpenAddModal = () => {
+        setEditingPurchase(null);
+        setSupplierName('');
+        setSupplierPhone('');
+        setSupplierGstin('');
+        setPurchaseDate(new Date().toISOString().slice(0, 10));
+        setCart([]);
+        setShowAddModal(true);
+    };
+
+    const handleCloseModal = () => {
+        setShowAddModal(false);
+        setEditingPurchase(null);
+        setCart([]);
+    };
+
+    // --- Submit Logic (Create or Update) ---
     const handleSavePurchase = async () => {
         if (!supplierName.trim()) return toast.error("Supplier name is required");
         if (cart.length === 0) return toast.error("Add at least one item");
 
         // Validate cart 
-        const invalidItem = cart.find(c => !c.quantity || c.quantity <= 0 || !c.mrp || c.mrp <= 0);
-        if (invalidItem) return toast.error("Please ensure all items have valid quantity and MRP");
+        const invalidItem = cart.find(c => !c.quantity || parseFloat(c.quantity) <= 0 || c.purchase_price === undefined || c.purchase_price === '' || parseFloat(c.purchase_price) < 0);
+        if (invalidItem) return toast.error("Please ensure all items have valid quantity and purchase price");
 
         setSaving(true);
         try {
@@ -156,26 +178,84 @@ const Purchases = () => {
                 supplier_name: supplierName,
                 supplier_phone: supplierPhone,
                 supplier_gstin: supplierGstin,
+                purchase_date: purchaseDate,
                 total_amount: totalAmount,
                 items: cart
             };
 
-            await api.post('/purchases', payload);
-            toast.success("Purchase recorded! Stock updated.");
+            if (editingPurchase) {
+                await api.put(`/purchases/${editingPurchase.id}`, payload);
+                toast.success("Purchase updated successfully! Stock and prices recalculated.");
+            } else {
+                await api.post('/purchases', payload);
+                toast.success("Purchase recorded! Stock updated.");
+            }
 
             // Reset & Close
             setShowAddModal(false);
+            setEditingPurchase(null);
             setSupplierName('');
             setSupplierPhone('');
             setSupplierGstin('');
+            setPurchaseDate(new Date().toISOString().slice(0, 10));
             setCart([]);
             fetchPurchases(); // Refresh history
             fetchInventoryItems(); // Refresh inventory
         } catch (error) {
             console.error("Save error:", error);
-            toast.error(error.response?.data?.error || "Failed to save purchase");
+            const msg = error.response?.data?.error || error.response?.data?.message || error.message || "Failed to save purchase";
+            toast.error(msg);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleEditPurchase = async (purchase) => {
+        try {
+            const toastId = toast.loading("Loading purchase details...");
+            const res = await api.get(`/purchases/${purchase.id}`);
+            const fullPurchase = res.data;
+            toast.dismiss(toastId);
+
+            if (!fullPurchase) {
+                toast.error("Purchase details not found");
+                return;
+            }
+
+            setEditingPurchase(fullPurchase);
+            setSupplierName(fullPurchase.supplier_name || '');
+            setSupplierPhone(fullPurchase.supplier_phone || '');
+            setSupplierGstin(fullPurchase.supplier_gstin || '');
+
+            let dateStr = new Date().toISOString().slice(0, 10);
+            if (fullPurchase.purchase_date) {
+                try {
+                    dateStr = new Date(fullPurchase.purchase_date).toISOString().slice(0, 10);
+                } catch (e) {
+                    console.error("Date parse error", e);
+                }
+            }
+            setPurchaseDate(dateStr);
+
+            // Preload cart with items
+            const loadedCart = (fullPurchase.items || []).map(it => {
+                const price = it.purchase_price !== undefined && it.purchase_price !== null ? it.purchase_price : it.mrp;
+                const qty = parseFloat(it.quantity) || 1;
+                return {
+                    item_id: it.item_id,
+                    name: it.item_name,
+                    hsn_code: it.hsn_code,
+                    quantity: qty,
+                    purchase_price: price,
+                    amount: parseFloat(it.amount) || (qty * (parseFloat(price) || 0))
+                };
+            });
+
+            setCart(loadedCart);
+            setShowAddModal(true);
+        } catch (err) {
+            toast.error("Failed to load purchase for editing");
+            console.error(err);
         }
     };
 
@@ -213,7 +293,7 @@ const Purchases = () => {
                     <p className="text-sm text-slate-500 mt-1">Manage supplier purchases and stock</p>
                 </div>
                 <button
-                    onClick={() => setShowAddModal(true)}
+                    onClick={handleOpenAddModal}
                     className="bg-[#1e293b] hover:bg-slate-800 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all shadow-sm"
                 >
                     <Plus className="h-4 w-4" /> Add Purchase
@@ -278,9 +358,12 @@ const Purchases = () => {
                                         <td className="p-4 text-slate-500">{purchase.supplier_gstin || '-'}</td>
                                         <td className="p-4 pr-6 text-right font-bold text-slate-800">₹{parseFloat(purchase.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                         <td className="p-4 pr-6">
-                                            <div className="flex items-center justify-center gap-3">
+                                            <div className="flex items-center justify-center gap-2">
                                                 <button onClick={() => handleViewPurchase(purchase)} className="text-blue-500 hover:text-blue-700 transition p-1.5 rounded-md hover:bg-blue-50" title="View Details">
                                                     <Eye className="h-4 w-4" />
+                                                </button>
+                                                <button onClick={() => handleEditPurchase(purchase)} className="text-amber-500 hover:text-amber-700 transition p-1.5 rounded-md hover:bg-amber-50" title="Edit Purchase">
+                                                    <Edit className="h-4 w-4" />
                                                 </button>
                                                 <button onClick={() => setPurchaseToDelete(purchase)} className="text-red-400 hover:text-red-600 transition p-1.5 rounded-md hover:bg-red-50" title="Delete">
                                                     <Trash2 className="h-4 w-4" />
@@ -295,22 +378,24 @@ const Purchases = () => {
                 </div>
             </div>
 
-            {/* Add Purchase Modal */}
+            {/* Add/Edit Purchase Modal */}
             {showAddModal && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-[#f8fafc] rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 border border-gray-200">
                         {/* Header */}
                         <div className="flex justify-between items-center p-5 border-b bg-white">
-                            <h2 className="text-xl font-bold text-slate-800">Add New Purchase</h2>
-                            <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 transition p-1">
+                            <h2 className="text-xl font-bold text-slate-800">
+                                {editingPurchase ? 'Edit Purchase' : 'Add New Purchase'}
+                            </h2>
+                            <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600 transition p-1">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
 
                         {/* Modal Body */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                            {/* Supplier Section bg-white */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Supplier & Date Section */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div className="relative">
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">Supplier Name *</label>
                                     <input
@@ -319,7 +404,7 @@ const Purchases = () => {
                                         placeholder="Enter supplier name"
                                         value={supplierName}
                                         onChange={e => {
-                                            setSupplierName(e.target.value);
+                                             setSupplierName(e.target.value);
                                             setShowSupplierDropdown(true);
                                         }}
                                         onFocus={() => setShowSupplierDropdown(true)}
@@ -353,6 +438,10 @@ const Purchases = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1.5">GST No.</label>
                                     <input type="text" className="w-full border border-gray-200 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white" placeholder="Enter GSTIN" value={supplierGstin} onChange={e => setSupplierGstin(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Purchase Date</label>
+                                    <input type="date" className="w-full border border-gray-200 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} />
                                 </div>
                             </div>
 
@@ -405,14 +494,14 @@ const Purchases = () => {
                                             <th className="p-4 font-medium">Item</th>
                                             <th className="p-4 font-medium w-24">HSN</th>
                                             <th className="p-4 font-medium w-28">Qty</th>
-                                            <th className="p-4 font-medium w-32">MRP (₹)</th>
+                                            <th className="p-4 font-medium w-36">Purchase Price</th>
                                             <th className="p-4 font-medium w-32">Amount</th>
                                             <th className="p-4 font-medium w-12 text-center"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
                                         {cart.length === 0 ? (
-                                            <tr>
+                                             <tr>
                                                 <td colSpan="6" className="p-8 text-center text-gray-400 bg-white">No items added to purchase yet.</td>
                                             </tr>
                                         ) : (
@@ -424,7 +513,7 @@ const Purchases = () => {
                                                         <input type="number" min="1" className="w-full border border-gray-200 rounded p-1.5 outline-none focus:border-blue-500 bg-white" value={item.quantity} onChange={(e) => updateCartItem(index, 'quantity', e.target.value)} />
                                                     </td>
                                                     <td className="p-4">
-                                                        <input type="number" min="0" step="0.01" className="w-full border border-gray-200 rounded p-1.5 outline-none focus:border-blue-500 bg-white" value={item.mrp} onChange={(e) => updateCartItem(index, 'mrp', e.target.value)} />
+                                                        <input type="number" min="0" step="0.01" className="w-full border border-gray-200 rounded p-1.5 outline-none focus:border-blue-500 bg-white" placeholder="0.00" value={item.purchase_price} onChange={(e) => updateCartItem(index, 'purchase_price', e.target.value)} />
                                                     </td>
                                                     <td className="p-4 font-medium text-slate-800">₹{parseFloat(item.amount).toFixed(2)}</td>
                                                     <td className="p-4 text-center">
@@ -450,9 +539,9 @@ const Purchases = () => {
 
                         {/* Footer Actions */}
                         <div className="p-5 border-t bg-gray-50 flex justify-end gap-3 rounded-b-xl">
-                            <button onClick={() => setShowAddModal(false)} className="px-6 py-2.5 border border-gray-300 rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition text-sm font-medium">Cancel</button>
+                            <button onClick={handleCloseModal} className="px-6 py-2.5 border border-gray-300 rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition text-sm font-medium">Cancel</button>
                             <button onClick={handleSavePurchase} disabled={saving || cart.length === 0} className="px-6 py-2.5 bg-[#1e293b] hover:bg-slate-800 text-white rounded-lg transition disabled:opacity-50 text-sm font-semibold shadow-sm flex items-center gap-2">
-                                {saving ? <span className="animate-spin">↻</span> : null} Save Purchase
+                                {saving ? <span className="animate-spin">↻</span> : null} {editingPurchase ? 'Update Purchase' : 'Save Purchase'}
                             </button>
                         </div>
                     </div>
@@ -502,7 +591,7 @@ const Purchases = () => {
                                             <th className="p-3 pl-4">Item Name</th>
                                             <th className="p-3 w-28">HSN</th>
                                             <th className="p-3 w-24">Qty</th>
-                                            <th className="p-3 w-32">Rate/MRP (₹)</th>
+                                            <th className="p-3 w-36">Purchase Price (₹)</th>
                                             <th className="p-3 pr-4 text-right w-36">Amount (₹)</th>
                                         </tr>
                                     </thead>
@@ -515,7 +604,7 @@ const Purchases = () => {
                                                     <td className="p-3 pl-4 font-medium text-slate-800">{it.item_name}</td>
                                                     <td className="p-3 text-slate-500">{it.hsn_code || '-'}</td>
                                                     <td className="p-3 font-semibold text-slate-700">{it.quantity}</td>
-                                                    <td className="p-3 text-slate-600">{parseFloat(it.mrp).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="p-3 text-slate-600">{parseFloat(it.purchase_price !== undefined && it.purchase_price !== null ? it.purchase_price : it.mrp).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     <td className="p-3 pr-4 text-right font-bold text-slate-800">{parseFloat(it.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                 </tr>
                                             ))

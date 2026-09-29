@@ -53,7 +53,32 @@ const purchaseController = {
         }
     },
 
-    // 4. Delete a purchase
+    // 4. Update an existing purchase
+    updatePurchase: async (req, res) => {
+        try {
+            const businessId = req.user.business_id;
+            const purchaseId = req.params.id;
+            const purchaseData = req.body;
+
+            if (!purchaseData.supplier_name || !purchaseData.items || purchaseData.items.length === 0) {
+                return res.status(400).json({ error: 'Supplier name and at least one item are required.' });
+            }
+
+            await Purchase.update(purchaseId, businessId, purchaseData);
+
+            res.json({
+                message: 'Purchase updated successfully! Stock and prices recalculated.'
+            });
+        } catch (error) {
+            console.error('Error updating purchase:', error);
+            if (error.message === 'Purchase not found') {
+                return res.status(404).json({ error: 'Purchase not found' });
+            }
+            res.status(500).json({ error: error.message || 'Failed to update purchase' });
+        }
+    },
+
+    // 5. Delete a purchase
     deletePurchase: async (req, res) => {
         try {
             const businessId = req.user.business_id;
