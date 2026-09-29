@@ -7,7 +7,7 @@ const ItemFormModal = ({ isOpen, onClose, initialData = null, onSuccess }) => {
     const [formData, setFormData] = useState({
         name: '', category: '', hsn_code: '', unit: '', mrp: '',
         purchase_price: '', selling_price: '', opening_stock: '',
-        min_stock_alert: 10, gst_percent: 18
+        min_stock_alert: 10, gst_percent: 0
     });
     const [categories, setCategories] = useState([]);
     const [units, setUnits] = useState([]);
@@ -17,11 +17,18 @@ const ItemFormModal = ({ isOpen, onClose, initialData = null, onSuccess }) => {
     useEffect(() => {
         if (isOpen) {
             fetchMasters();
+            const initialGst = (initialData?.gst_percent !== undefined && initialData?.gst_percent !== null)
+                ? initialData.gst_percent
+                : 0;
+            const initialAlert = (initialData?.min_stock_alert !== undefined && initialData?.min_stock_alert !== null)
+                ? initialData.min_stock_alert
+                : 10;
             setFormData({
                 name: '', category: '', hsn_code: '', unit: '', mrp: '',
                 purchase_price: '', selling_price: '', opening_stock: '',
-                min_stock_alert: 10, gst_percent: 18,
-                ...(initialData || {})
+                ...(initialData || {}),
+                gst_percent: initialGst,
+                min_stock_alert: initialAlert
             });
         }
     }, [isOpen, initialData]);
@@ -64,7 +71,19 @@ const ItemFormModal = ({ isOpen, onClose, initialData = null, onSuccess }) => {
         e.preventDefault();
         setSaving(true);
         try {
-            const payload = { ...formData, selling_price: formData.mrp };
+            const parsedGst = (formData.gst_percent !== '' && formData.gst_percent !== null && formData.gst_percent !== undefined)
+                ? parseFloat(formData.gst_percent)
+                : 0;
+            const parsedAlert = (formData.min_stock_alert !== '' && formData.min_stock_alert !== null && formData.min_stock_alert !== undefined)
+                ? parseFloat(formData.min_stock_alert)
+                : 10;
+
+            const payload = {
+                ...formData,
+                selling_price: formData.mrp,
+                gst_percent: parsedGst,
+                min_stock_alert: parsedAlert
+            };
             let savedItem;
 
             if (initialData?.id) {
@@ -169,6 +188,19 @@ const ItemFormModal = ({ isOpen, onClose, initialData = null, onSuccess }) => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Low Stock Alert</label>
                         <input type="number" className="w-full border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none"
                             value={formData.min_stock_alert} onChange={e => setFormData({ ...formData, min_stock_alert: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">GST (%)</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="0"
+                            className="w-full border rounded p-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={formData.gst_percent}
+                            onChange={e => setFormData({ ...formData, gst_percent: e.target.value })}
+                        />
                     </div>
 
                     <div className="col-span-2 pt-4 flex justify-end space-x-3 border-t mt-2">

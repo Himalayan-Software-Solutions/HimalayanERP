@@ -138,9 +138,9 @@ const Billing = () => {
             item_name: item.name,
             hsn_code: item.hsn_code,
             quantity: 1,
-            rate: parseFloat(item.selling_price), // Default to selling price
+            rate: parseFloat(item.selling_price || item.mrp || 0), // Default to selling price
             discount_percent: 0,
-            gst_percent: parseFloat(item.gst_percent),
+            gst_percent: parseFloat(item.gst_percent || 0),
             stock_available: item.current_stock
         };
         setCart([...cart, newItem]);
@@ -164,6 +164,7 @@ const Billing = () => {
         const qty = parseFloat(item.quantity) || 0;
         const rate = parseFloat(item.rate) || 0;
         const disc = parseFloat(item.discount_percent) || 0;
+        const gstRate = parseFloat(item.gst_percent) || 0;
         // INCLUSIVE TAX LOGIC:
         // Rate is MRP (Inclusive of Tax)
         // 1. Calculate Net Price after Discount
@@ -174,11 +175,7 @@ const Billing = () => {
         const netPrice = gross - discAmt; // This is the amount customer pays (Inclusive of Tax)
 
         // Back-calculate Taxable
-        // Net Price = Taxable + Tax
-        // Net Price = Taxable * (1 + GST/100)
-        // Taxable = Net Price / (1 + GST/100)
-
-        const taxable = netPrice / (1 + (item.gst_percent / 100));
+        const taxable = gstRate > 0 ? (netPrice / (1 + (gstRate / 100))) : netPrice;
         const gstAmtTotal = netPrice - taxable;
 
         let sgstAmt = 0, cgstAmt = 0, igstAmt = 0;
@@ -194,7 +191,7 @@ const Billing = () => {
         const final = netPrice;
 
         return {
-            gross, discAmt, taxable, sgstAmt, cgstAmt, igstAmt, final
+            gross, discAmt, taxable, sgstAmt, cgstAmt, igstAmt, final, gstRate
         };
     };
 
@@ -238,15 +235,16 @@ const Billing = () => {
 
         const invoiceItems = cart.map(item => {
             const row = calculateRow(item);
+            const gstRate = parseFloat(item.gst_percent) || 0;
             return {
                 ...item,
                 discount_amount: row.discAmt,
                 taxable_value: row.taxable,
-                sgst_percent: isInterState ? 0 : item.gst_percent / 2,
+                sgst_percent: isInterState ? 0 : gstRate / 2,
                 sgst_amount: row.sgstAmt,
-                cgst_percent: isInterState ? 0 : item.gst_percent / 2,
+                cgst_percent: isInterState ? 0 : gstRate / 2,
                 cgst_amount: row.cgstAmt,
-                igst_percent: isInterState ? item.gst_percent : 0,
+                igst_percent: isInterState ? gstRate : 0,
                 igst_amount: row.igstAmt,
                 final_amount: row.final
             };
@@ -474,7 +472,8 @@ const Billing = () => {
                                             <div className="font-bold text-gray-800">{item.name}</div>
                                             <div className="text-xs text-gray-500 mt-0.5 flex space-x-2">
                                                 <span className="bg-gray-100 px-1.5 rounded">Stock: {item.current_stock}</span>
-                                                <span className="bg-gray-100 px-1.5 rounded">HSN: {item.hsn_code}</span>
+                                                <span className="bg-gray-100 px-1.5 rounded">HSN: {item.hsn_code || 'N/A'}</span>
+                                                <span className="bg-blue-50 text-blue-700 px-1.5 rounded font-medium">GST: {parseFloat(item.gst_percent || 0)}%</span>
                                             </div>
                                         </div>
                                         <div className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">₹{item.selling_price}</div>
@@ -500,6 +499,7 @@ const Billing = () => {
                                     <th className="p-3 w-20 text-center">Qty</th>
                                     <th className="p-3 w-28 text-right">Rate</th>
                                     <th className="p-3 w-20 text-center">Disc%</th>
+                                    <th className="p-3 w-20 text-center">GST%</th>
                                     <th className="p-3 w-24 text-right">Total</th>
                                     <th className="p-3 w-12 text-center"></th>
                                 </tr>
@@ -507,7 +507,7 @@ const Billing = () => {
                             <tbody className="divide-y divide-gray-100">
                                 {cart.length === 0 ? (
                                     <tr>
-                                        <td colSpan="7" className="p-16 text-center text-gray-400">
+                                        <td colSpan="8" className="p-16 text-center text-gray-400">
                                             <div className="flex flex-col items-center justify-center">
                                                 <div className="mb-2">
                                                     <FileText className="h-10 w-10 text-gray-300" />
@@ -541,6 +541,12 @@ const Billing = () => {
                                                     <input type="number" className="w-full border border-gray-200 bg-white rounded focus:border-blue-500 p-1.5 text-center outline-none"
                                                         value={item.discount_percent}
                                                         onChange={e => updateCartItem(index, 'discount_percent', e.target.value === '' ? '' : parseFloat(e.target.value))} />
+                                                </td>
+                                                <td className="p-3">
+                                                    <input type="number" step="0.01" className="w-full border border-gray-200 bg-white rounded focus:border-blue-500 p-1.5 text-center outline-none"
+                                                        value={item.gst_percent}
+                                                        min="0" max="100"
+                                                        onChange={e => updateCartItem(index, 'gst_percent', e.target.value === '' ? '' : parseFloat(e.target.value))} />
                                                 </td>
                                                 <td className="p-3 text-right font-medium text-gray-800">₹{row.final.toFixed(2)}</td>
                                                 <td className="p-3 text-center">

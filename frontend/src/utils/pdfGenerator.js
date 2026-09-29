@@ -33,9 +33,10 @@ const calculateRow = (item) => {
     // Correctly handle Tax Percent
     let gstPercent = parseFloat(item.gst_percent) || 0;
     if (gstPercent === 0) {
+        const igst = parseFloat(item.igst_percent) || 0;
         const sgst = parseFloat(item.sgst_percent) || 0;
         const cgst = parseFloat(item.cgst_percent) || 0;
-        gstPercent = sgst + cgst;
+        gstPercent = igst || (sgst + cgst);
     }
 
     // Inclusive Tax Logic
@@ -44,11 +45,11 @@ const calculateRow = (item) => {
     const final = gross - discAmt; // Amount is MRP * Qty - Discount
 
     // Taxable value is back-calculated from final amount
-    const taxable = final / (1 + (gstPercent / 100)); // Total taxable for the row
+    const taxable = gstPercent > 0 ? (final / (1 + (gstPercent / 100))) : final; // Total taxable for the row
     
     // Per item taxable (Rate - gst) of qty 1
     const rateAfterDisc = rate * (1 - discPercent / 100);
-    const taxablePerItem = rateAfterDisc / (1 + (gstPercent / 100));
+    const taxablePerItem = gstPercent > 0 ? (rateAfterDisc / (1 + (gstPercent / 100))) : rateAfterDisc;
 
     const gstAmt = final - taxable;
     const sgstAmt = gstAmt / 2;
@@ -265,9 +266,9 @@ export const generatePDF = async (data, items, shopSettings, action = 'view') =>
     // === LEFT SIDE ===
     let leftY = footerY + 4;
 
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    const gstString = `GST ${pdfTotals.taxable.toFixed(2)}*9+9%=${pdfTotals.sgst.toFixed(2)}SGST+${pdfTotals.cgst.toFixed(2)}CGST, CESS:0%=0`;
+    const gstString = data.is_interstate
+        ? `Taxable: ${pdfTotals.taxable.toFixed(2)}, IGST: ${(pdfTotals.igst || 0).toFixed(2)}, CESS: 0.00`
+        : `Taxable: ${pdfTotals.taxable.toFixed(2)}, SGST: ${pdfTotals.sgst.toFixed(2)}, CGST: ${pdfTotals.cgst.toFixed(2)}, CESS: 0.00`;
     doc.text(gstString, 7, leftY);
 
     doc.line(5, leftY + 2, 105, leftY + 2);

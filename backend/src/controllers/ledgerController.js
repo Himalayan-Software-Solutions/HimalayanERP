@@ -6,7 +6,7 @@ exports.getLedger = async (req, res) => {
         const business_id = req.user.business_id;
 
         let query = `
-        SELECT l.*, COALESCE(i.customer_name, c.name) as customer_name, i.invoice_number 
+        SELECT l.*, COALESCE(i.customer_name, c.name) as customer_name, i.invoice_number, i.pdf_path 
         FROM ledger l
         LEFT JOIN customers c ON l.customer_id = c.id
         LEFT JOIN invoices i ON l.invoice_id = i.id

@@ -7,6 +7,9 @@ class Item {
             opening_stock, current_stock, gst_percent, min_stock_alert, business_id
         } = itemData;
 
+        const alertThreshold = (min_stock_alert !== undefined && min_stock_alert !== '' && min_stock_alert !== null) ? parseFloat(min_stock_alert) : 10;
+        const gstRate = (gst_percent !== undefined && gst_percent !== '' && gst_percent !== null) ? parseFloat(gst_percent) : 0;
+
         const query = `
         INSERT INTO items (
             name, category, hsn_code, unit, mrp, purchase_price, selling_price, 
@@ -15,7 +18,7 @@ class Item {
     `;
         const params = [
             name, category, hsn_code, unit, mrp, purchase_price, selling_price,
-            opening_stock || 0, current_stock || opening_stock || 0, gst_percent, min_stock_alert, business_id
+            opening_stock || 0, current_stock || opening_stock || 0, gstRate, alertThreshold, business_id
         ];
 
         const [result] = await db.execute(query, params);
@@ -58,6 +61,9 @@ class Item {
             gst_percent, min_stock_alert, business_id
         } = itemData;
 
+        const alertThreshold = (min_stock_alert !== undefined && min_stock_alert !== '' && min_stock_alert !== null) ? parseFloat(min_stock_alert) : 10;
+        const gstRate = (gst_percent !== undefined && gst_percent !== '' && gst_percent !== null) ? parseFloat(gst_percent) : 0;
+
         const query = `
         UPDATE items SET 
             name=?, category=?, hsn_code=?, unit=?, mrp=?, purchase_price=?, selling_price=?, 
@@ -67,7 +73,7 @@ class Item {
 
         const [result] = await db.execute(query, [
             name, category, hsn_code, unit, mrp, purchase_price, selling_price,
-            gst_percent, min_stock_alert, id, business_id
+            gstRate, alertThreshold, id, business_id
         ]);
         return result.affectedRows > 0;
     }

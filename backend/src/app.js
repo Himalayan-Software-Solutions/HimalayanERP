@@ -7,7 +7,10 @@ const path = require('path');
 const app = express();
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: false,
+    crossOriginEmbedderPolicy: false
+}));
 const corsOptions = {
     origin: process.env.FRONTEND_URL || '*',
     optionsSuccessStatus: 200

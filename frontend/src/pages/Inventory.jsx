@@ -91,14 +91,15 @@ const Inventory = () => {
                                 <th className="p-4">Stock</th>
                                 <th className="p-4">Unit</th>
                                 <th className="p-4">MRP</th>
+                                <th className="p-4">GST %</th>
                                 <th className="p-4">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
-                                <tr><td colSpan="8" className="p-4 text-center">Loading...</td></tr>
+                                <tr><td colSpan="9" className="p-4 text-center">Loading...</td></tr>
                             ) : items.length === 0 ? (
-                                <tr><td colSpan="8" className="p-4 text-center text-gray-500">No items found.</td></tr>
+                                <tr><td colSpan="9" className="p-4 text-center text-gray-500">No items found.</td></tr>
                             ) : (
                                 items.map((item, index) => (
                                     <tr key={item.id} className="hover:bg-gray-50 group">
@@ -106,11 +107,16 @@ const Inventory = () => {
                                         <td className="p-4 font-medium text-gray-800">{item.name}</td>
                                         <td className="p-4 text-gray-600">{item.category}</td>
                                         <td className="p-4 text-gray-500 font-mono text-sm">{item.hsn_code}</td>
-                                        <td className={`p-4 font-bold ${item.current_stock <= item.min_stock_alert ? 'text-red-600' : 'text-green-600'}`}>
+                                        <td className={`p-4 font-bold ${parseFloat(item.current_stock || 0) <= parseFloat(item.min_stock_alert ?? 10) ? 'text-red-600' : 'text-green-600'}`}>
                                             {item.current_stock}
                                         </td>
                                         <td className="p-4 text-gray-500">{item.unit}</td>
                                         <td className="p-4 text-gray-600">₹{item.mrp}</td>
+                                        <td className="p-4 text-gray-600 font-medium">
+                                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">
+                                                {parseFloat(item.gst_percent || 0)}%
+                                            </span>
+                                        </td>
                                         <td className="p-4 flex items-center">
                                             <button
                                                 onClick={() => handleEdit(item)}

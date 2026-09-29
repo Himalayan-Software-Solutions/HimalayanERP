@@ -123,12 +123,21 @@ const Ledger = () => {
                 transport_no: inv.transport_no || '',
                 freight_charges: parseFloat(inv.freight_charges || 0),
                 labour_charges: parseFloat(inv.labour_charges || 0),
-                items: items.map(item => ({
-                    ...item,
-                    quantity: parseFloat(item.quantity),
-                    rate: parseFloat(item.rate), // This is now MRP
-                    discount_percent: parseFloat(item.discount_percent || 0),
-                }))
+                items: items.map(item => {
+                    const igst = parseFloat(item.igst_percent) || 0;
+                    const sgst = parseFloat(item.sgst_percent) || 0;
+                    const cgst = parseFloat(item.cgst_percent) || 0;
+                    const totalGst = (item.gst_percent !== undefined && item.gst_percent !== null && item.gst_percent !== '')
+                        ? parseFloat(item.gst_percent)
+                        : (igst > 0 ? igst : (sgst + cgst));
+                    return {
+                        ...item,
+                        quantity: parseFloat(item.quantity) || 0,
+                        rate: parseFloat(item.rate) || 0, // This is now MRP
+                        discount_percent: parseFloat(item.discount_percent || 0),
+                        gst_percent: totalGst
+                    };
+                })
             });
             setShowEditModal(true);
         } catch (e) {
@@ -142,6 +151,7 @@ const Ledger = () => {
         const qty = parseFloat(item.quantity) || 0;
         const rate = parseFloat(item.rate) || 0;
         const disc = parseFloat(item.discount_percent) || 0;
+        const gstRate = parseFloat(item.gst_percent) || 0;
 
         // INCLUSIVE TAX LOGIC:
         // Rate is MRP (Inclusive of Tax)
@@ -150,7 +160,7 @@ const Ledger = () => {
         const netPrice = gross - discAmt; // Inclusive of Tax
 
         // Back-calculate Taxable
-        const taxable = netPrice / (1 + (item.gst_percent / 100));
+        const taxable = gstRate > 0 ? (netPrice / (1 + (gstRate / 100))) : netPrice;
         const gstAmtTotal = netPrice - taxable;
 
         let sgstAmt = 0, cgstAmt = 0, igstAmt = 0;
@@ -171,9 +181,9 @@ const Ledger = () => {
             sgst_amount: sgstAmt,
             cgst_amount: cgstAmt,
             igst_amount: igstAmt,
-            sgst_percent: isInterState ? 0 : item.gst_percent / 2,
-            cgst_percent: isInterState ? 0 : item.gst_percent / 2,
-            igst_percent: isInterState ? item.gst_percent : 0,
+            sgst_percent: isInterState ? 0 : gstRate / 2,
+            cgst_percent: isInterState ? 0 : gstRate / 2,
+            igst_percent: isInterState ? gstRate : 0,
             final_amount: final
         };
     };
